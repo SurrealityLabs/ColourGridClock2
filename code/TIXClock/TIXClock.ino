@@ -3,15 +3,11 @@
 CommandShell CommandLine;
 
 #include <RTClock.h>
+#include <TimeLib.h>
 #include <WS2812B.h>
 
 RTClock rtclock (RTCSEL_LSE);
 WS2812B strip = WS2812B(36);
-
-#define TZ -5
-
-volatile uint8_t displayArray[3][32];
-uint8_t newDisplayArray[3][32];
 
 uint8_t minuteOnesColour[] = {
   255, 0, 0};
@@ -67,12 +63,15 @@ int setDateFunc(char * args[], char num_args) {
     return 4;
   }
   
-  tm_t newTime;
-  rtclock.breakTime(rtclock.now(), newTime);
-  newTime.year = yearNum - 1970;
-  newTime.month = monthNum;
-  newTime.day = dayNum;
-  rtclock.setTime(rtclock.TimeZone(rtclock.makeTime(newTime), TZ));
+  tmElements_t newTime;
+  breakTime(now(), newTime);
+  newTime.Year = CalendarYrToTm(yearNum);
+  newTime.Month = monthNum;
+  newTime.Day = dayNum;
+  time_t tmp_t;
+  tmp_t = makeTime(newTime);
+  rtclock.setTime(tmp_t);
+  setTime(tmp_t);
 
   Serial.print(F("Setting date to "));
   Serial.print(dayNum);
@@ -106,12 +105,15 @@ int setTimeFunc(char * args[], char num_args) {
     return 4;
   }
 
-  tm_t newTime;
-  rtclock.breakTime(rtclock.now(), newTime);
-  newTime.hour = hourNum;
-  newTime.minute = minNum;
-  newTime.second = secNum;
-  rtclock.setTime(rtclock.TimeZone(rtclock.makeTime(newTime), TZ));
+  tmElements_t newTime;
+  breakTime(now(), newTime);
+  newTime.Hour = hourNum;
+  newTime.Minute = minNum;
+  newTime.Second = secNum;
+  time_t tmp_t;
+  tmp_t = makeTime(newTime);
+  rtclock.setTime(tmp_t);
+  setTime(tmp_t);
 
   Serial.print(F("Setting time to "));
   Serial.print(hourNum);
@@ -125,21 +127,25 @@ int setTimeFunc(char * args[], char num_args) {
 int printTimeFunc(char * args[], char num_args) {
   Serial.print(F("The current time is:"));
 
-  tm_t newTime;
-  rtclock.breakTime(rtclock.now(), newTime);
-  Serial.print(newTime.year, DEC);
+  tmElements_t newTime;
+  breakTime(now(), newTime);
+  Serial.print(tmYearToCalendar(newTime.Year), DEC);
   Serial.print('/');
-  Serial.print(newTime.month, DEC);
+  Serial.print(newTime.Month, DEC);
   Serial.print('/');
-  Serial.print(newTime.day, DEC);
+  Serial.print(newTime.Day, DEC);
   Serial.print(' ');
-  Serial.print(newTime.hour, DEC);
+  Serial.print(newTime.Hour, DEC);
   Serial.print(':');
-  Serial.print(newTime.minute, DEC);
+  Serial.print(newTime.Minute, DEC);
   Serial.print(':');
-  Serial.print(newTime.second, DEC);
+  Serial.print(newTime.Second, DEC);
   Serial.println();
   return 0;
+}
+
+time_t getHwTime(void) {
+  return rtclock.getTime();
 }
 
 void setup(void) {
@@ -147,38 +153,42 @@ void setup(void) {
     strip.setPixelColor(i, 0ul);
   strip.show();
 
+  setTime(getHwTime());
+  setSyncProvider(getHwTime);
+  setSyncInterval(600);
+
   Serial.begin(9600);
   Serial.println(F("Starting"));
 
-  randomSeed(rtclock.now());
+  randomSeed(now());
   CommandLine.commandTable = uart_cmd_set;
   CommandLine.init(&Serial);
 }
 
 void loop(void) {
-  tm_t nowTime;
-  rtclock.breakTime(rtclock.now(), nowTime);
+  tmElements_t nowTime;
+  breakTime(now(), nowTime);
 
   CommandLine.runService();
 
   static uint8_t alreadyRan = 2;
 
   uint8_t ShuffleData[9];
-  uint8_t minuteOnes = nowTime.minute % 10;
-  uint8_t minuteTens = nowTime.minute / 10;
-  uint8_t hourOnes = nowTime.hour % 10;
-  uint8_t hourTens = nowTime.hour / 10;
+  uint8_t minuteOnes = nowTime.Minute % 10;
+  uint8_t minuteTens = nowTime.Minute / 10;
+  uint8_t hourOnes = nowTime.Hour % 10;
+  uint8_t hourTens = nowTime.Hour / 10;
 
   uint8_t r, g, b, tempH, lastH;
 
-  if(((nowTime.second % 30 == 0) && (alreadyRan == 1)) || (alreadyRan == 2)) {
+  if(((nowTime.Second % 30 == 0) && (alreadyRan == 1)) || (alreadyRan == 2)) {
     tempH = random(255);
     h2rgb(tempH, r, g, b);
     minuteOnesColour[0] = r;
     minuteOnesColour[1] = g;
     minuteOnesColour[2] = b;
 
-    if(nowTime.minute > 9) {
+    if(nowTime.Minute > 9) {
       lastH = tempH;
       while(!checkDifference(lastH, tempH, 75)) tempH = random(255);
       h2rgb(tempH, r, g, b);
@@ -266,7 +276,7 @@ void loop(void) {
     strip.show();
     alreadyRan = 0;
   } 
-  else if(nowTime.second % 30 == 1) {
+  else if(nowTime.Second % 30 == 1) {
     alreadyRan = 1;
   }
 }
