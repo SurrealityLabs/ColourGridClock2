@@ -6,6 +6,13 @@ CommandShell CommandLine;
 #include <TimeLib.h>
 #include <WS2812B.h>
 
+#include <Timezone.h>   // https://github.com/JChristensen/Timezone
+
+// US Eastern Time Zone (New York, Detroit)
+TimeChangeRule myDST = {"EDT", Second, Sun, Mar, 2, -240};    // Daylight time = UTC - 4 hours
+TimeChangeRule mySTD = {"EST", First, Sun, Nov, 2, -300};     // Standard time = UTC - 5 hours
+Timezone myTZ(myDST, mySTD);
+
 RTClock rtclock (RTCSEL_LSE);
 WS2812B strip = WS2812B(36);
 
@@ -64,12 +71,16 @@ int setDateFunc(char * args[], char num_args) {
   }
   
   tmElements_t newTime;
-  breakTime(now(), newTime);
+  time_t tmp_t;
+  tmp_t = now();
+  tmp_t = myTZ.toLocal(tmp_t);
+  breakTime(tmp_t, newTime);
   newTime.Year = CalendarYrToTm(yearNum);
   newTime.Month = monthNum;
   newTime.Day = dayNum;
-  time_t tmp_t;
+  
   tmp_t = makeTime(newTime);
+  tmp_t = myTZ.toUTC(tmp_t);
   rtclock.setTime(tmp_t);
   setTime(tmp_t);
 
@@ -106,12 +117,15 @@ int setTimeFunc(char * args[], char num_args) {
   }
 
   tmElements_t newTime;
-  breakTime(now(), newTime);
+  time_t tmp_t;
+  tmp_t = now();
+  tmp_t = myTZ.toLocal(tmp_t);
+  breakTime(tmp_t, newTime);
   newTime.Hour = hourNum;
   newTime.Minute = minNum;
   newTime.Second = secNum;
-  time_t tmp_t;
   tmp_t = makeTime(newTime);
+  tmp_t = myTZ.toUTC(tmp_t);
   rtclock.setTime(tmp_t);
   setTime(tmp_t);
 
@@ -128,7 +142,10 @@ int printTimeFunc(char * args[], char num_args) {
   Serial.print(F("The current time is:"));
 
   tmElements_t newTime;
-  breakTime(now(), newTime);
+  time_t tmp_t;
+  tmp_t = now();
+  tmp_t = myTZ.toLocal(tmp_t);
+  breakTime(tmp_t, newTime);
   Serial.print(tmYearToCalendar(newTime.Year), DEC);
   Serial.print('/');
   Serial.print(newTime.Month, DEC);
@@ -149,6 +166,10 @@ time_t getHwTime(void) {
 }
 
 void setup(void) {
+  Serial.begin(9600);
+  Serial.println(F("Starting"));
+
+  strip.begin();
   for(uint8_t i = 0; i < 36; i++)
     strip.setPixelColor(i, 0ul);
   strip.show();
@@ -157,9 +178,6 @@ void setup(void) {
   setSyncProvider(getHwTime);
   setSyncInterval(600);
 
-  Serial.begin(9600);
-  Serial.println(F("Starting"));
-
   randomSeed(now());
   CommandLine.commandTable = uart_cmd_set;
   CommandLine.init(&Serial);
@@ -167,7 +185,10 @@ void setup(void) {
 
 void loop(void) {
   tmElements_t nowTime;
-  breakTime(now(), nowTime);
+  time_t tmp_t;
+  tmp_t = now();
+  tmp_t = myTZ.toLocal(tmp_t);
+  breakTime(tmp_t, nowTime);
 
   CommandLine.runService();
 
