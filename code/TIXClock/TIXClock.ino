@@ -5,6 +5,7 @@ CommandShell CommandLine;
 #include <RTClock.h>
 #include <TimeLib.h>
 #include <WS2812B.h>
+#include <ColorConverterLib.h>
 
 #include <Timezone.h>   // https://github.com/JChristensen/Timezone
 
@@ -204,7 +205,7 @@ void loop(void) {
 
   if(((nowTime.Second % 30 == 0) && (alreadyRan == 1)) || (alreadyRan == 2)) {
     tempH = random(255);
-    h2rgb(tempH, r, g, b);
+    ColorConverter::HsvToRgb(tempH, 1.0, 1.0, r, g, b);
     minuteOnesColour[0] = r;
     minuteOnesColour[1] = g;
     minuteOnesColour[2] = b;
@@ -212,7 +213,7 @@ void loop(void) {
     if(nowTime.Minute > 9) {
       lastH = tempH;
       while(!checkDifference(lastH, tempH, 75)) tempH = random(255);
-      h2rgb(tempH, r, g, b);
+      ColorConverter::HsvToRgb(tempH, 1.0, 1.0, r, g, b);
       minuteTensColour[0] = r;
       minuteTensColour[1] = g;
       minuteTensColour[2] = b;
@@ -221,7 +222,7 @@ void loop(void) {
     if(hourOnes != 0) {
       lastH = tempH;
       while(!checkDifference(lastH, tempH, 75)) tempH = random(255);
-      h2rgb(tempH, r, g, b);
+      ColorConverter::HsvToRgb(tempH, 1.0, 1.0, r, g, b);
       hourOnesColour[0] = r;
       hourOnesColour[1] = g;
       hourOnesColour[2] = b;
@@ -229,7 +230,7 @@ void loop(void) {
 
     lastH = tempH;
     while(!checkDifference(lastH, tempH, 75)) tempH = random(255);
-    h2rgb(tempH, r, g, b);
+    ColorConverter::HsvToRgb(tempH, 1.0, 1.0, r, g, b);
     hourTensColour[0] = r;
     hourTensColour[1] = g;
     hourTensColour[2] = b;
@@ -243,7 +244,7 @@ void loop(void) {
     for (uint8_t i = 0; i < 6; ++i)
       ShuffleData[i] = (i < hourTens) ? 1 : 0;
 
-    ShuffleIfNeeded(ShuffleData, 3, hourTens);
+    DoShuffle(ShuffleData, 3);
     tempColour = strip.Color(hourTensColour[0], hourTensColour[1], hourTensColour[2]);
     if(ShuffleData[0]) strip.setPixelColor(0, tempColour);
     if(ShuffleData[1]) strip.setPixelColor(23, tempColour);
@@ -253,7 +254,7 @@ void loop(void) {
     for (uint8_t i = 0; i < 9; ++i)
       ShuffleData[i] = (i < hourOnes) ? 1 : 0;
 
-    ShuffleIfNeeded(ShuffleData, 9, hourOnes);
+    DoShuffle(ShuffleData, 9);
     tempColour = strip.Color(hourOnesColour[0], hourOnesColour[1], hourOnesColour[2]);
     if(ShuffleData[0]) strip.setPixelColor(2, tempColour);
     if(ShuffleData[1]) strip.setPixelColor(3, tempColour);
@@ -269,7 +270,7 @@ void loop(void) {
     for (uint8_t i = 0; i < 9; ++i)
       ShuffleData[i] = (i < minuteTens) ? 1 : 0;
 
-    ShuffleIfNeeded(ShuffleData, 6, minuteTens);
+    DoShuffle(ShuffleData, 6);
     tempColour = strip.Color(minuteTensColour[0], minuteTensColour[1], minuteTensColour[2]);
     if(ShuffleData[0]) strip.setPixelColor(6, tempColour);
     if(ShuffleData[1]) strip.setPixelColor(7, tempColour);
@@ -282,7 +283,7 @@ void loop(void) {
     for (uint8_t i = 0; i < 9; ++i)
       ShuffleData[i] = (i < minuteOnes) ? 1 : 0;
 
-    ShuffleIfNeeded(ShuffleData, 9, minuteOnes);
+    DoShuffle(ShuffleData, 9);
     tempColour = strip.Color(minuteOnesColour[0], minuteOnesColour[1], minuteOnesColour[2]);
     if(ShuffleData[0]) strip.setPixelColor(9, tempColour);
     if(ShuffleData[1]) strip.setPixelColor(10, tempColour);
@@ -315,72 +316,6 @@ void DoShuffle(uint8_t ShuffleData[9], uint8_t NumElems)
     uint8_t Temp = ShuffleData[i];
     ShuffleData[i] = ShuffleData[SwapElemIdx];
     ShuffleData[SwapElemIdx] = Temp;
-  }
-}
-
-inline void ShuffleIfNeeded(uint8_t ShuffleData[9], uint8_t NumElems, uint8_t NumSetElems)
-{
-  // Don't bother shuffling when all elements have an identical value.
-  if (NumSetElems != NumElems && NumSetElems != 0)
-    DoShuffle(ShuffleData, NumElems);
-}
-
-void h2rgb(uint8_t Hint, uint8_t& R, uint8_t& G, uint8_t& B) {
-
-  int var_i;
-  float H, S=1, V=1, var_1, var_2, var_3, var_h, var_r, var_g, var_b;
-
-  H = (float)Hint / 256.0;
-
-  if ( S == 0 )                       //HSV values = 0 ÷ 1
-  {
-    R = V * 255;
-    G = V * 255;
-    B = V * 255;
-  }
-  else
-  {
-    var_h = H * 6;
-    if ( var_h == 6 ) var_h = 0;      //H must be < 1
-    var_i = int( var_h ) ;            //Or ... var_i = floor( var_h )
-    var_1 = V * ( 1 - S );
-    var_2 = V * ( 1 - S * ( var_h - var_i ) );
-    var_3 = V * ( 1 - S * ( 1 - ( var_h - var_i ) ) );
-
-    if      ( var_i == 0 ) {
-      var_r = V     ;
-      var_g = var_3 ;
-      var_b = var_1 ;
-    }
-    else if ( var_i == 1 ) {
-      var_r = var_2 ;
-      var_g = V     ;
-      var_b = var_1 ;
-    }
-    else if ( var_i == 2 ) {
-      var_r = var_1 ;
-      var_g = V     ;
-      var_b = var_3 ;
-    }
-    else if ( var_i == 3 ) {
-      var_r = var_1 ;
-      var_g = var_2 ;
-      var_b = V     ;
-    }
-    else if ( var_i == 4 ) {
-      var_r = var_3 ;
-      var_g = var_1 ;
-      var_b = V     ;
-    }
-    else                   {
-      var_r = V     ;
-      var_g = var_1 ;
-      var_b = var_2 ;
-    }
-
-    R = (1-var_r) * 255;                  //RGB results = 0 ÷ 255
-    G = (1-var_g) * 255;
-    B = (1-var_b) * 255;
   }
 }
 
