@@ -8,6 +8,13 @@ CommandShell CommandLine;
 
 #include <Timezone.h>   // https://github.com/JChristensen/Timezone
 
+#include <MicroNMEA.h>
+char gpsBuffer[85];
+MicroNMEA nmea(gpsBuffer, sizeof(gpsBuffer));
+#define GPSSerial Serial2
+#define GPS_INTERVAL (60 * 60 * 1000ul)
+uint32_t lastGPS;
+
 // US Eastern Time Zone (New York, Detroit)
 TimeChangeRule myDST = {"EDT", Second, Sun, Mar, 2, -240};    // Daylight time = UTC - 4 hours
 TimeChangeRule mySTD = {"EST", First, Sun, Nov, 2, -300};     // Standard time = UTC - 5 hours
@@ -30,6 +37,7 @@ uint8_t hourTensColour[] = {
 int setDateFunc(char * args[], char num_args);
 int setTimeFunc(char * args[], char num_args);
 int printTimeFunc(char * args[], char num_args);
+int gpsInfoFunc(char * args[], char num_args);
 
 /* UART command set array, customized commands may add here */
 commandshell_cmd_struct_t uart_cmd_set[] =
@@ -42,6 +50,9 @@ commandshell_cmd_struct_t uart_cmd_set[] =
   ,
   {
     "printTime", "\tprintTime", printTimeFunc      }
+  ,
+  {
+    "gpsInfo", "\tgpsInfo", gpsInfoFunc      }
   ,
   {
     0,0,0      }
@@ -161,6 +172,33 @@ int printTimeFunc(char * args[], char num_args) {
   return 0;
 }
 
+int gpsInfoFunc(char *args[], char num_args) {
+  if (nmea.isValid()) {
+    Serial.println("GPS has fix");
+  } else {
+    Serial.println("GPS does not have fix");
+  }
+  Serial.print("GPS Date/time is: ");
+  Serial.print(nmea.getYear());
+  Serial.print('-');
+  Serial.print(int(nmea.getMonth()));
+  Serial.print('-');
+  Serial.print(int(nmea.getDay()));
+  Serial.print('T');
+  Serial.print(int(nmea.getHour()));
+  Serial.print(':');
+  Serial.print(int(nmea.getMinute()));
+  Serial.print(':');
+  Serial.println(int(nmea.getSecond()));
+  Serial.print("GPS last synced at mills() value ");
+  Serial.println(lastGPS);
+  Serial.print("Current millis() value is ");
+  Serial.println(millis());
+  Serial.print("GPS sync interval is ");
+  Serial.println(GPS_INTERVAL);
+  return 0;
+}
+
 time_t getHwTime(void) {
   return rtclock.getTime();
 }
@@ -181,6 +219,8 @@ void setup(void) {
   randomSeed(now());
   CommandLine.commandTable = uart_cmd_set;
   CommandLine.init(&Serial);
+
+  GPSSerial.begin(9600);
 }
 
 void loop(void) {
@@ -189,6 +229,7 @@ void loop(void) {
   tmp_t = now();
   tmp_t = myTZ.toLocal(tmp_t);
   breakTime(tmp_t, nowTime);
+  static bool clockIsSet = false;
 
   CommandLine.runService();
 
@@ -299,6 +340,29 @@ void loop(void) {
   } 
   else if(nowTime.Second % 30 == 1) {
     alreadyRan = 1;
+  }
+
+  while (GPSSerial.available()) {
+    char c = GPSSerial.read();
+    if (nmea.process(c)) {
+      if (nmea.isValid()) {
+        if ((millis() - lastGPS >  GPS_INTERVAL) || (!clockIsSet)) {
+          nowTime.Year = CalendarYrToTm(nmea.getYear());
+          nowTime.Month = nmea.getMonth();
+          nowTime.Day = nmea.getDay();
+          nowTime.Hour = nmea.getHour();
+          nowTime.Minute = nmea.getMinute();
+          nowTime.Second = nmea.getSecond();
+
+          tmp_t = makeTime(nowTime);
+          rtclock.setTime(tmp_t);
+          setTime(tmp_t);
+  
+          lastGPS = millis();
+          clockIsSet = true;
+        }
+      }
+    }
   }
 }
 
