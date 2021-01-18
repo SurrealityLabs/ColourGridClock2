@@ -246,7 +246,7 @@ void loop(void) {
 
   if(((nowTime.Second % 30 == 0) && (alreadyRan == 1)) || (alreadyRan == 2)) {
     tempH = random(255);
-    ColorConverter::HsvToRgb(tempH, 1.0, 1.0, r, g, b);
+    ColorConverter::HsvToRgb(((float)tempH)/256.0, 1.0, 1.0, r, g, b);
     minuteOnesColour[0] = r;
     minuteOnesColour[1] = g;
     minuteOnesColour[2] = b;
@@ -254,7 +254,7 @@ void loop(void) {
     if(nowTime.Minute > 9) {
       lastH = tempH;
       while(!checkDifference(lastH, tempH, 75)) tempH = random(255);
-      ColorConverter::HsvToRgb(tempH, 1.0, 1.0, r, g, b);
+      ColorConverter::HsvToRgb(((float)tempH)/256.0, 1.0, 1.0, r, g, b);
       minuteTensColour[0] = r;
       minuteTensColour[1] = g;
       minuteTensColour[2] = b;
@@ -263,7 +263,7 @@ void loop(void) {
     if(hourOnes != 0) {
       lastH = tempH;
       while(!checkDifference(lastH, tempH, 75)) tempH = random(255);
-      ColorConverter::HsvToRgb(tempH, 1.0, 1.0, r, g, b);
+      ColorConverter::HsvToRgb(((float)tempH)/256.0, 1.0, 1.0, r, g, b);
       hourOnesColour[0] = r;
       hourOnesColour[1] = g;
       hourOnesColour[2] = b;
@@ -271,7 +271,7 @@ void loop(void) {
 
     lastH = tempH;
     while(!checkDifference(lastH, tempH, 75)) tempH = random(255);
-    ColorConverter::HsvToRgb(tempH, 1.0, 1.0, r, g, b);
+    ColorConverter::HsvToRgb(((float)tempH)/256.0, 1.0, 1.0, r, g, b);
     hourTensColour[0] = r;
     hourTensColour[1] = g;
     hourTensColour[2] = b;
